@@ -18,6 +18,7 @@ import * as PianoGenieModel from './model';
 import { PianoGenieUI } from './ui';
 import { ALL_CONFIGS, DEFAULT_CFG_NAME, PianoGenieConfig } from './configs';
 import { LSTMState, LSTMStateUtil } from './lstm_state';
+import { PitchList, getPitchList, scaleMaskFromPitchList } from './scale';
 import * as Sample from './sample';
 // tslint:disable-next-line:no-require-imports
 const PianoSampler = require('tone-piano').Piano;
@@ -31,6 +32,7 @@ class PianoGenie {
   private ui: PianoGenieUI;
 
   private buttonToNoteMap: Map<number, number>;
+  private pitchList: PitchList;
 
   private extemporeState: LSTMState;
   private extemporeLastOutput: number;
@@ -67,6 +69,7 @@ class PianoGenie {
 
     this.buttonToNoteMap = new Map<number, number>();
     this.ui.genieCanvas.resize(this.cfg.modelCfg.getNumButtons());
+    this.pitchList = null;
 
     if (this.cfg.defaultUserParameters.lookAhead) {
       this.initLookAhead();
@@ -117,6 +120,17 @@ class PianoGenie {
       const value = this.ui.cfgSelect.options[this.ui.cfgSelect.selectedIndex].value;
       this.changeModel(ALL_CONFIGS[value]);
     };
+
+    // Bind scale selector
+    this.ui.scaleSelect.onchange = () => {
+      const value = this.ui.scaleSelect.options[this.ui.scaleSelect.selectedIndex].value;
+      if (value === 'None') {
+        this.pitchList = null;
+      } else {
+        const [rootName, scaleName] = value.split('_');
+        this.pitchList = getPitchList(rootName, scaleName);
+      }
+    };
   }
 
   private pressButton(button: number) {
@@ -146,17 +160,23 @@ class PianoGenie {
         [this.extemporeLastOutput],
         [deltaTimeSeconds]);
 
+      let scoresMask: tf.Tensor2D;
+      if (this.pitchList !== null) {
+        scoresMask = scaleMaskFromPitchList(this.pitchList);
+      }
+
       const userParameters = this.ui.getUserParameters();
       const newStateRepresentative = LSTMStateUtil.getRepresentative(newState);
       let preds: tf.Tensor1D;
       switch (userParameters.samplingType) {
         case Sample.SamplingType.Greedy:
-          preds = Sample.sampleGreedy(logits);
+          preds = Sample.sampleGreedy(logits, scoresMask);
           break;
         case Sample.SamplingType.Categorical:
           preds = Sample.sampleCategorical(
             logits,
-            userParameters.categoricalTemperature);
+            userParameters.categoricalTemperature,
+            scoresMask);
           break;
         case Sample.SamplingType.ButtonUnigram:
           preds = Sample.sampleButtonUnigram(
@@ -200,6 +220,9 @@ class PianoGenie {
       this.extemporeTime = time;
       logits.dispose();
       preds.dispose();
+      if (scoresMask !== undefined) {
+        scoresMask.dispose();
+      }
     }
   }
 
@@ -261,7 +284,14 @@ class PianoGenie {
       allButtons,
       currOutputs,
       undefined);
-    const preds = this.cfg.defaultUserParameters.samplingType === Sample.SamplingType.Greedy ? Sample.sampleGreedy(logits) : Sample.sampleCategorical(logits);
+
+    let scoresMask: tf.Tensor2D;;
+    if (this.pitchList !== null) {
+      scoresMask = scaleMaskFromPitchList(this.pitchList);
+    }
+
+    const userParameters = this.ui.getUserParameters();
+    const preds = this.cfg.defaultUserParameters.samplingType === Sample.SamplingType.Greedy ? Sample.sampleGreedy(logits, scoresMask) : Sample.sampleCategorical(logits, userParameters.categoricalTemperature, scoresMask);
 
     // Retrieve predictions
     const predsArr = preds.dataSync();
@@ -279,6 +309,9 @@ class PianoGenie {
     LSTMStateUtil.dispose(copiedState);
     logits.dispose();
     preds.dispose();
+    if (scoresMask !== undefined) {
+      scoresMask.dispose();
+    }
   }
 
   private changeModel(newCfg: PianoGenieConfig) {

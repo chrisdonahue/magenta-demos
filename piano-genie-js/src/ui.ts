@@ -16,6 +16,7 @@ limitations under the License.
 import { ButtonCanvas } from './button_canvas';
 import { PianoCanvas } from './piano_canvas';
 import { SamplingType} from './sample';
+import { NOTE_NAMES, SCALE_NAMES } from './scale';
 import { PianoGenieUserParameters, ALL_CONFIGS, DEFAULT_CFG_NAME } from './configs';
 
 const SLIDER_MAX_VALUE = 10000;
@@ -25,6 +26,7 @@ export class PianoGenieUI {
   private loadingDiv: HTMLDivElement;
   private contentDiv: HTMLDivElement;
   readonly cfgSelect: HTMLSelectElement;
+  readonly scaleSelect: HTMLSelectElement;
   readonly lookAheadCheckBox: HTMLInputElement;
   private samplingTypeRadio: HTMLInputElement[];
   private categoricalTemperatureSlider: HTMLInputElement;
@@ -65,6 +67,25 @@ export class PianoGenieUI {
     this.resetBtn.appendChild(document.createTextNode('Reset'));
     modelDiv.appendChild(this.resetBtn);
     this.contentDiv.appendChild(modelDiv);
+
+    // Create scale selector
+    const scaleDiv = document.createElement('div');
+    scaleDiv.appendChild(document.createTextNode('Scale'));
+    this.scaleSelect = document.createElement('select');
+    const unconstrainedOpt = document.createElement('option');
+    unconstrainedOpt.innerHTML = 'None';
+    unconstrainedOpt.selected = true;
+    this.scaleSelect.appendChild(unconstrainedOpt);
+    for (const noteName of NOTE_NAMES) {
+      for (const scaleName of SCALE_NAMES) {
+        const opt = document.createElement('option');
+        opt.innerHTML = `${noteName} ${scaleName}`;
+        opt.value = `${noteName}_${scaleName}`;
+        this.scaleSelect.appendChild(opt);
+      }
+    }
+    scaleDiv.appendChild(this.scaleSelect);
+    this.contentDiv.appendChild(scaleDiv);
 
     // Create look ahead check box
     const lookAheadCheckBoxDiv = document.createElement('div');

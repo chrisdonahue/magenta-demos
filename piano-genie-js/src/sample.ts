@@ -24,8 +24,14 @@ export const enum SamplingType {
   NeuralCache
 };
 
-export function sampleGreedy(logits: tf.Tensor2D) {
-  return tf.argMax(logits, 1) as tf.Tensor1D;
+export function sampleGreedy(logits: tf.Tensor2D, scoresMask?: tf.Tensor2D) {
+  const samples: tf.Tensor1D = tf.tidy(() => {
+    if (scoresMask) {
+      logits = tf.mul(logits, scoresMask);
+    }
+    return tf.argMax(logits, 1) as tf.Tensor1D;
+  });
+  return samples;
 }
 
 function safeSoftmaxWithTemperature(logits: tf.Tensor2D, temperature?: number) {
@@ -33,16 +39,20 @@ function safeSoftmaxWithTemperature(logits: tf.Tensor2D, temperature?: number) {
   if (temperature === undefined || temperature === 1) {
     result = tf.softmax(logits, 1);
   } else if (temperature === 0) {
-    result = tf.oneHot(tf.argMax(logits, 1) as tf.Tensor1D, logits.shape[1]) as tf.Tensor2D;
+    result = tf.cast(tf.oneHot(tf.argMax(logits, 1) as tf.Tensor1D, logits.shape[1]), 'float32') as tf.Tensor2D;
   } else {
     result = tf.softmax(tf.div(logits, tf.scalar(temperature, 'float32')), 1) as tf.Tensor2D;
   }
   return result;
 }
 
-export function sampleCategorical(logits: tf.Tensor2D, temperature?: number) {
+export function sampleCategorical(logits: tf.Tensor2D, temperature?: number, scoresMask?: tf.Tensor2D) {
   const samples: tf.Tensor1D = tf.tidy(() => {
-    const scores = safeSoftmaxWithTemperature(logits, temperature);
+    let scores = safeSoftmaxWithTemperature(logits, temperature);
+    if (scoresMask) {
+      scores = tf.mul(scores, scoresMask);
+      scores = tf.div(scores, tf.sum(scores, 1, true));
+    }
     return tf.multinomial(scores, 1, undefined, true) as tf.Tensor1D;
   });
   return samples;
@@ -132,6 +142,7 @@ export class NeuralCache extends Cache<[tf.Tensor2D, Int32Array]> {
 
 export class ButtonCache extends Cache<[number, number]> { };
 
+// TODO(chrisdonahue): scoresMask?
 export function sampleButtonUnigram(
   logits: tf.Tensor2D,
   cache: ButtonCache,
