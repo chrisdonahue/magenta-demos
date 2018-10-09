@@ -127,7 +127,9 @@ class PianoGenie {
 
       // Play immediately
       const note = output + 21;
-      this.sampler.keyDown(note);
+      this.sampler.outputs.forEach(function(port) {
+        port.send([0x90, note, 0x7f]);
+      })
 
       // Draw immediately
       this.buttonToNoteMap.set(button, note);
@@ -184,7 +186,9 @@ class PianoGenie {
       // Play
       const output = predsArr[0];
       const note = output + 21;
-      this.sampler.keyDown(note);
+      this.sampler.outputs.forEach(function(port) {
+        port.send([0x90, note, 0x7f]);
+      })
 
       // Draw
       this.buttonToNoteMap.set(button, note);
@@ -205,7 +209,9 @@ class PianoGenie {
 
   private releaseButton(button: number) {
     const note = this.buttonToNoteMap.get(button);
-    this.sampler.keyUp(note);
+    this.sampler.outputs.forEach(function(port) {
+      port.send([0x80, note, 0x0]);
+    })
     this.buttonToNoteMap.delete(button);
 
     this.ui.genieCanvas.redraw(this.buttonToNoteMap);
@@ -325,12 +331,10 @@ const defaultModel = new PianoGenieModel.Model(defaultCfg.modelCfg);
 ui.genieCanvas.resize(defaultCfg.modelCfg.getNumButtons());
 ui.setUserParameters(defaultCfg.defaultUserParameters);
 
-const sampler = new PianoSampler({ velocities: 4 }).toMaster();
-
 Promise.all([
-  sampler.load(SALAMANDER_URL),
+  navigator.requestMIDIAccess(),
   defaultModel.initialize(defaultCfg.uri)])
-  .then(() => {
-    new PianoGenie(defaultCfg, sampler, defaultModel, ui);
+  .then((midiAccess) => {
+    new PianoGenie(defaultCfg, midiAccess[0], defaultModel, ui);
     ui.setReady();
   });
