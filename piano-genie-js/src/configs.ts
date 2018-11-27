@@ -92,6 +92,12 @@ export const ALL_CONFIGS: { [key: string]: PianoGenieConfig } = {
     modelCfg: new PianoGenieModel.StpIqAutoDtCfg(true),
     defaultUserParameters: categoricalDeltaTimeUserParameters
   },
+  tatum_stp_iq_auto_contour_dt: {
+    name: '(Jazz) Step IQ + Autoregression + Contour + Delta Time',
+    uri: 'tatum_genie',
+    modelCfg: new PianoGenieModel.StpIqAutoDtCfg(true),
+    defaultUserParameters: categoricalDeltaTimeUserParameters
+  }
 }
 
 export const DEFAULT_CFG_NAME = 'epiano_stp_iq_auto_contour_dt';
