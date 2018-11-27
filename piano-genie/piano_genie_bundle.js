@@ -46889,6 +46889,12 @@ exports.ALL_CONFIGS = {
         uri: BASE_PATH + 'model/epiano/stp_iq_auto_contour_dt_166006',
         modelCfg: new PianoGenieModel.StpIqAutoDtCfg(true),
         defaultUserParameters: categoricalDeltaTimeUserParameters
+    },
+    tatum_stp_iq_auto_contour_dt: {
+        name: '(Jazz) Step IQ + Autoregression + Contour + Delta Time',
+        uri: 'tatum_genie',
+        modelCfg: new PianoGenieModel.StpIqAutoDtCfg(true),
+        defaultUserParameters: categoricalDeltaTimeUserParameters
     }
 };
 exports.DEFAULT_CFG_NAME = 'epiano_stp_iq_auto_contour_dt';
